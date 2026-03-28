@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  
+  // Relations
+  candidates Candidate[]
+  shortlists Shortlist[]
+}
+
+model Candidate {
+  id                String   @id @default(cuid())
+  userId            Int      // Owner of this candidate
+  name              String
+  currentRole       String
+  yearsOfExperience Int
+  skills            String   // Stored as JSON string
+  education         String
+  summary           String
+  isMock            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  user              User     @relation(fields: [userId], references: [id])
+  shortlists        Shortlist[]
+}
+
+model Shortlist {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  candidateId String
+  score       Int?
+  matchedSkills String? // Stored as JSON string
+  missingSkills String? // Stored as JSON string
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id])
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+
+  @@unique([userId, candidateId]) // Prevent shortlisting the same candidate twice per user
+}
