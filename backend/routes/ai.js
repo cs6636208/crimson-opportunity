@@ -15,17 +15,15 @@ router.post('/analyze', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Job requirements and candidates are required.' });
     }
 
-    // Limit to 200 candidates per request to avoid payload limits
-    const safeCandidates = candidates.slice(0, 200);
-
-    const matchPrompt = `
+    const BATCH_SIZE = 50;
+    const promptTemplate = (candidatePool) => `
 You are an expert HR AI Assistant. Your task is to evaluate a pool of candidates against a specific job requirement.
 
 Job Requirement:
 "${jobReq}"
 
 Candidate Pool (JSON):
-${JSON.stringify(safeCandidates, null, 2)}
+${JSON.stringify(candidatePool, null, 2)}
 
 === EVALUATION RULES (MUST FOLLOW STRICTLY) ===
 
@@ -38,7 +36,7 @@ ${JSON.stringify(safeCandidates, null, 2)}
 4. SPECIAL TRAITS AS TIE-BREAKERS: If the requirement mentions soft skills or traits like "problem-solving" (แนวคิดการแก้ปัญหา), "leadership", prioritize candidates who explicitly list these in their skills or summary.
 
 5. EXACT SCORING FORMULA REQUIREMENTS:
-   - Role Match: 30% weight (If role completely mismatches, candidate should fall out of top 5 unless no one else fits)
+   - Role Match: 30% weight
    - Education Match: 25% weight  
    - Skills (Tech & Soft) Match: 35% weight
    - Experience: 10% weight
@@ -67,39 +65,67 @@ Respond STRICTLY with valid JSON in the following format, with no markdown code 
 }
 `;
 
-    const requestBody = {
+    // Helper: call Typhoon API for one batch
+    const analyzeOneBatch = async (batch, batchNum) => {
+      const prompt = promptTemplate(batch);
+      const requestBody = {
         model: 'typhoon-v2.5-30b-a3b-instruct',
-        messages: [{ role: 'user', content: matchPrompt }],
-        max_tokens: 16384,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 32768,
         temperature: 0.3,
+      };
+
+      console.log(`[ANALYZE] Batch ${batchNum}: Sending ${batch.length} candidates to Typhoon API...`);
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error(`[ANALYZE] Batch ${batchNum} failed:`, err);
+        throw new Error(`Batch ${batchNum} failed: ${err}`);
+      }
+
+      const data = await response.json();
+      let textObj = data.choices[0].message.content;
+      textObj = textObj.replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
+      return JSON.parse(textObj);
     };
 
-    console.log('[ANALYZE] Sending to Typhoon API...', { model: requestBody.model, apiKeyPrefix: API_KEY?.substring(0, 10) + '...' });
-
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-        const err = await response.text();
-        console.error('[ANALYZE] Typhoon API Status:', response.status);
-        console.error('[ANALYZE] Typhoon API Response:', err);
-        return res.status(response.status).json({ error: 'Failed to communicate with OpenTyphoon AI', details: err });
+    // Split candidates into batches
+    const batches = [];
+    for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+      batches.push(candidates.slice(i, i + BATCH_SIZE));
     }
 
-    const data = await response.json();
-    let textObj = data.choices[0].message.content;
+    console.log(`[ANALYZE] Total candidates: ${candidates.length}, split into ${batches.length} batch(es) of up to ${BATCH_SIZE}`);
 
-    // strip markdown wrappers if AI adds them
-    textObj = textObj.replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
-    
-    const parsedData = JSON.parse(textObj);
-    return res.json(parsedData);
+    if (batches.length === 1) {
+      // Only 1 batch — direct call, no tournament needed
+      const result = await analyzeOneBatch(batches[0], 1);
+      return res.json(result);
+    }
+
+    // Tournament mode: run all batches in parallel, collect top 5 from each
+    const batchResults = await Promise.all(
+      batches.map((batch, idx) => analyzeOneBatch(batch, idx + 1))
+    );
+
+    // Collect all top candidates from each batch
+    const allTopCandidates = batchResults.flatMap(r => r.rankedCandidates || []);
+
+    console.log(`[ANALYZE] Tournament: collected ${allTopCandidates.length} finalists from ${batches.length} batches. Running final round...`);
+
+    // Final round: pick the overall Top 5 from all batch winners
+    const finalResult = await analyzeOneBatch(allTopCandidates, 'FINAL');
+    return res.json(finalResult);
+
   } catch (error) {
     console.error('AI Analysis Error:', error);
     res.status(500).json({ error: 'Error analyzing candidates via AI' });
