@@ -1,21 +1,20 @@
 export const mockResumes = [
   {
     "id": "CAND-001",
-    "name": "Joseph Hernandez",
-    "currentRole": "Marketing Specialist",
-    "yearsOfExperience": 12,
+    "name": "Alex Chot",
+    "currentRole": "Software Engineer",
+    "yearsOfExperience": 7,
     "skills": [
-      "SQL",
-      "GraphQL",
+      "C++",
+      "UI/UX Research",
+      "Figma",
+      "Problem Solving",
       "AWS",
-      "Team Player",
-      "SAP",
       "Agile",
-      "MongoDB",
-      "Docker"
+      "Mentoring"
     ],
-    "education": "Bachelor's Degree",
-    "summary": "Experienced Marketing Specialist with 12 years in the industry. Passionate about delivering high quality work and continuous learning."
+    "education": "Master's Degree",
+    "summary": "Creative Software Engineer with a Master's degree and 7 years of full-stack experience. Strong in C++ and highly skilled in UX/UI design. Known for out-of-the-box problem solving and developing scalable interfaces."
   },
   {
     "id": "CAND-002",

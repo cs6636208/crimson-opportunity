@@ -59,7 +59,10 @@ const CandidateRanking = ({ results }) => {
                   {candidate.name} 
                   {index === 0 && <Star size={16} fill="var(--warning-color)" className="text-warning" />}
                 </h3>
-                <p className="text-sm text-secondary" style={{ marginBottom: '0.5rem' }}>{candidate.currentRole} • {candidate.yearsOfExperience}y exp</p>
+                <p className="text-sm text-secondary" style={{ marginBottom: '0.5rem' }}>
+                  {candidate.currentRole} • {candidate.yearsOfExperience}y exp
+                  {candidate.education && <span style={{ marginLeft: '0.5rem', background: 'rgba(139,92,246,0.15)', color: '#a78bfa', fontSize: '0.7rem', padding: '0.15rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(139,92,246,0.25)' }}>🎓 {candidate.education}</span>}
+                </p>
                 <div className="skills" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                   {candidate.matchedSkills.slice(0, 4).map(skill => (
                     <span key={skill} style={{ 

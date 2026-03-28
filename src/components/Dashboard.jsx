@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, Users, Search, Zap, CheckCircle, AlertTriangle, ClipboardList } from 'lucide-react';
 import JobRequirementsForm from './JobRequirementsForm';
 import CandidateRanking from './CandidateRanking';
@@ -13,13 +13,56 @@ const Dashboard = ({ candidates, setCandidates }) => {
   const [analysisResults, setAnalysisResults] = useState(null);
   const [shortlist, setShortlist] = useState([]);
 
-  const handleShortlist = (candidate) => {
-    setShortlist(prev => {
-      if (prev.find(c => c.id === candidate.id)) {
-        return prev;
+  // Fetch initial shortlist from backend
+  useEffect(() => {
+    const fetchShortlist = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch('http://localhost:5000/api/candidates/shortlists', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) setShortlist(data);
+      } catch (err) {
+        console.error('Error fetching shortlist:', err);
       }
-      return [...prev, candidate];
-    });
+    };
+    fetchShortlist();
+  }, []);
+
+  const handleShortlist = async (candidate) => {
+    const isAlreadyShortlisted = shortlist.find(c => c.id === candidate.id);
+    
+    if (isAlreadyShortlisted) {
+      setShortlist(prev => prev.filter(c => c.id !== candidate.id));
+    } else {
+      setShortlist(prev => [...prev, candidate]);
+    }
+
+    // Only sync to backend for REAL candidates saved in DB (not mock/random)
+    const isMockCandidate = candidate.id?.startsWith('CAND-') || candidate.id?.startsWith('RAND-');
+    if (isMockCandidate) return; // Skip backend — local only
+
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`http://localhost:5000/api/candidates/shortlist/${candidate.id}`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` 
+          },
+          body: JSON.stringify({
+            score: candidate.score,
+            matchedSkills: candidate.matchedSkills,
+            missingSkills: candidate.missingSkills
+          })
+        });
+      }
+    } catch (err) {
+      console.warn('Backend shortlist sync skipped:', err.message);
+    }
   };
 
   const handleRemoveFromShortlist = (candidateId) => {
@@ -104,6 +147,7 @@ const Dashboard = ({ candidates, setCandidates }) => {
             isAnalyzing={isAnalyzing}
             candidatesCount={candidates.length}
             setCandidates={setCandidates}
+            candidates={candidates}
           />
         )}
         

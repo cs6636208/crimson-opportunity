@@ -23,6 +23,7 @@ Respond STRICTLY with valid JSON in the following format, with no markdown code 
       "name": "John Doe",
       "currentRole": "Software Engineer",
       "yearsOfExperience": 5,
+      "education": "Bachelor's Degree",
       "score": 95,
       "matchedSkills": ["React", "Node.js"],
       "missingSkills": ["AWS"],

@@ -53,12 +53,10 @@ const ComparativeAnalysis = ({ results, onShortlist, shortlist = [] }) => {
               const isShortlisted = shortlist.find(c => c.id === candidate.id);
               return (
                 <button 
-                  className={`btn mt-6 w-full ${isShortlisted ? 'btn-secondary' : idx === 0 ? 'btn-primary' : 'btn-secondary'}`}
+                  className={`btn mt-6 w-full ${isShortlisted ? 'btn-danger' : idx === 0 ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => onShortlist && onShortlist(candidate)}
-                  disabled={!!isShortlisted}
-                  style={isShortlisted ? { opacity: 0.6, cursor: 'default' } : {}}
                 >
-                  <UserCheck size={16} /> {isShortlisted ? '✓ Shortlisted' : 'Shortlist'}
+                  <UserCheck size={16} /> {isShortlisted ? '✓ Remove from Shortlist' : 'Shortlist'}
                 </button>
               );
             })()}

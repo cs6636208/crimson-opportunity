@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Upload, Briefcase, Code, CheckCircle, Zap } from 'lucide-react';
+import { Upload, Briefcase, Code, CheckCircle, Zap, Shuffle } from 'lucide-react';
 
-const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candidatesCount, setCandidates }) => {
+const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candidatesCount, setCandidates, candidates }) => {
 
   const [isUploading, setIsUploading] = useState(false);
 
@@ -19,22 +19,22 @@ const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candid
     
     setIsUploading(true);
     try {
-      let text = '';
-      if (file.type === 'application/pdf' && window.pdfjsLib) {
-         window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-         const arrayBuffer = await file.arrayBuffer();
-         const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-         for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            text += content.items.map(item => item.str).join(' ') + ' ';
-         }
-      } else {
-         text = await file.text();
+      const { extractResumeData } = await import('../services/llmClient.js');
+      const newCandidate = await extractResumeData(file);
+      
+      // Save to backend immediately so returning users see it
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch('http://localhost:5000/api/candidates/bulk', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` 
+          },
+          body: JSON.stringify({ candidates: [newCandidate] })
+        });
       }
       
-      const { extractResumeData } = await import('../services/llmClient.js');
-      const newCandidate = await extractResumeData(text);
       setCandidates(prev => [newCandidate, ...prev]);
       alert(`Successfully processed and added: ${newCandidate.name}`);
     } catch (err) {
@@ -54,6 +54,18 @@ const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candid
     } catch (err) {
       console.error(err);
       alert("Failed to load mock data. Ensure mock data script has been run.");
+    }
+  };
+
+  const handleGenerateRandom = async () => {
+    try {
+      const { generateMockResumes } = await import('../utils/mockGenerator.js');
+      const freshResumes = generateMockResumes(100, candidates);
+      setCandidates(prev => [...prev, ...freshResumes]);
+      alert(`สุ่มสร้างใหม่ ${freshResumes.length} คนที่ไม่ซ้ำกับชุดเดิม! (รวมทั้งหมด ${candidates.length + freshResumes.length} คนในระบบ)`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate random mock data.");
     }
   };
 
@@ -99,6 +111,14 @@ const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candid
             <p className="text-xs text-secondary mb-4 min-h-[40px]">Instantly populate the system with 100 auto-generated resumes for testing.</p>
             <button className="btn btn-secondary w-full justify-center" onClick={handleLoadMockData}>
                Load 100 Mock Resumes
+            </button>
+          </div>
+
+          <div className="action-card p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+            <h4 className="flex items-center gap-2 mb-2"><Shuffle size={18} className="text-warning"/> Random Generate</h4>
+            <p className="text-xs text-secondary mb-4 min-h-[40px]">Generate 100 fresh random resumes (no duplicates with existing pool).</p>
+            <button className="btn btn-secondary w-full justify-center" onClick={handleGenerateRandom}>
+               + Generate 100 Random
             </button>
           </div>
           
