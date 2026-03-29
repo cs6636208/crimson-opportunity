@@ -94,8 +94,34 @@ Respond STRICTLY with valid JSON in the following format, with no markdown code 
 
       const data = await response.json();
       let textObj = data.choices[0].message.content;
-      textObj = textObj.replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
-      return JSON.parse(textObj);
+      
+      // Extract exactly the JSON object boundaries from the response
+      const jsonMatch = textObj.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        textObj = jsonMatch[0];
+      } else {
+        textObj = textObj.replace(/^```json/gi, '').replace(/^```/g, '').replace(/```$/g, '').trim();
+      }
+
+      try {
+        return JSON.parse(textObj);
+      } catch (parseErr) {
+        console.warn(`[ANALYZE] Batch ${batchNum} JSON parse failed, attempting auto-fix...`);
+        // Auto-fix 1: Remove trailing commas before closing brackets/braces
+        textObj = textObj.replace(/,\s*([\]}])/g, '$1');
+        // Auto-fix 2: Add missing commas between objects in an array
+        textObj = textObj.replace(/\}\s*\{/g, '},{');
+        // Auto-fix 3: Sanitize unescaped newlines in strings
+        textObj = textObj.replace(/\n/g, '\\n');
+        
+        try {
+          return JSON.parse(textObj);
+        } catch (fatalErr) {
+          console.error(`[ANALYZE] FATAL: AI returned unparseable JSON in Batch ${batchNum}.\nRaw Output:\n${textObj}`);
+          // Return an empty list if this batch fails completely so the whole tournament doesn't crash
+          return { rankedCandidates: [] };
+        }
+      }
     };
 
     // Split candidates into batches
@@ -106,10 +132,22 @@ Respond STRICTLY with valid JSON in the following format, with no markdown code 
 
     console.log(`[ANALYZE] Total candidates: ${candidates.length}, split into ${batches.length} batch(es) of up to ${BATCH_SIZE}`);
 
+    // Helper to remove any duplicate candidates the AI hallucinates
+    const deduplicateCandidates = (result) => {
+      if (!result || !result.rankedCandidates) return result;
+      const seen = new Set();
+      result.rankedCandidates = result.rankedCandidates.filter(c => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+      return result;
+    };
+
     if (batches.length === 1) {
       // Only 1 batch — direct call, no tournament needed
       const result = await analyzeOneBatch(batches[0], 1);
-      return res.json(result);
+      return res.json(deduplicateCandidates(result));
     }
 
     // Tournament mode: run all batches in parallel, collect top 5 from each
@@ -117,14 +155,20 @@ Respond STRICTLY with valid JSON in the following format, with no markdown code 
       batches.map((batch, idx) => analyzeOneBatch(batch, idx + 1))
     );
 
-    // Collect all top candidates from each batch
-    const allTopCandidates = batchResults.flatMap(r => r.rankedCandidates || []);
+    // Collect all top candidates from each batch, and deduplicate them just in case
+    let allTopCandidates = batchResults.flatMap(r => r.rankedCandidates || []);
+    const seenFinalists = new Set();
+    allTopCandidates = allTopCandidates.filter(c => {
+       if (seenFinalists.has(c.id)) return false;
+       seenFinalists.add(c.id);
+       return true;
+    });
 
     console.log(`[ANALYZE] Tournament: collected ${allTopCandidates.length} finalists from ${batches.length} batches. Running final round...`);
 
     // Final round: pick the overall Top 5 from all batch winners
     const finalResult = await analyzeOneBatch(allTopCandidates, 'FINAL');
-    return res.json(finalResult);
+    return res.json(deduplicateCandidates(finalResult));
 
   } catch (error) {
     console.error('AI Analysis Error:', error);
