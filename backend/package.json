@@ -1,5 +1,5 @@
 {
-  "name": "crimson-backend",
+  "name": "llm-ai-backend",
   "version": "1.0.0",
   "description": "Backend for Job Matching AI",
   "main": "server.js",
