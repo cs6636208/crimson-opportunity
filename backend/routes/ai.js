@@ -230,10 +230,28 @@ ${text}
     const data = await response.json();
     let textObj = data.choices[0].message.content;
 
-    textObj = textObj.replace(/^```json/g, '').replace(/^```/g, '').replace(/```$/g, '').trim();
+    textObj = textObj.replace(/^```json[\r\n]*/gi, '').replace(/^```[\r\n]*/g, '').replace(/```$/g, '').trim();
 
-    const parsedData = JSON.parse(textObj);
-    return res.json(parsedData);
+    // Extract exactly the JSON object boundaries (robust against AI preamble text)
+    const jsonMatch = textObj.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      textObj = jsonMatch[0];
+    }
+
+    try {
+      const parsedData = JSON.parse(textObj);
+      return res.json(parsedData);
+    } catch (parseErr) {
+      // Auto-fix: remove trailing commas before closing brackets/braces
+      textObj = textObj.replace(/,\s*([\]}])/g, '$1');
+      try {
+        const parsedData = JSON.parse(textObj);
+        return res.json(parsedData);
+      } catch (fatalErr) {
+        console.error('[EXTRACT] FATAL: AI returned unparseable JSON.\nRaw Output:\n', textObj);
+        return res.status(500).json({ error: 'AI returned invalid JSON format. Please try again.' });
+      }
+    }
   } catch (error) {
     console.error('AI Extraction Error:', error);
     return res.status(500).json({ error: 'Server error extracting resume data' });

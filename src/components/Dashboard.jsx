@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Users, Search, Zap, CheckCircle, AlertTriangle, ClipboardList } from 'lucide-react';
+import { Users, Search, Zap, ClipboardList, LogOut, User } from 'lucide-react';
 import JobRequirementsForm from './JobRequirementsForm';
 import CandidateRanking from './CandidateRanking';
 import ComparativeAnalysis from './ComparativeAnalysis';
 import ShortlistView from './ShortlistView';
 import { analyzeCandidates } from '../services/llmClient';
 
-const Dashboard = ({ candidates, setCandidates }) => {
-  const [activeTab, setActiveTab] = useState('requirements'); // 'requirements', 'ranking', 'comparison'
+const Dashboard = ({ candidates, setCandidates, user, onLogout }) => {
+  const [activeTab, setActiveTab] = useState('requirements');
   const [jobReq, setJobReq] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState(null);
   const [shortlist, setShortlist] = useState([]);
 
-  // Fetch initial shortlist from backend
   useEffect(() => {
     const fetchShortlist = async () => {
       try {
@@ -33,116 +32,133 @@ const Dashboard = ({ candidates, setCandidates }) => {
 
   const handleShortlist = async (candidate) => {
     const isAlreadyShortlisted = shortlist.find(c => c.id === candidate.id);
-    
+
     if (isAlreadyShortlisted) {
       setShortlist(prev => prev.filter(c => c.id !== candidate.id));
     } else {
       setShortlist(prev => [...prev, candidate]);
     }
 
-    // Only sync to backend for REAL candidates saved in DB (not mock/random)
     const isMockCandidate = candidate.id?.startsWith('CAND-') || candidate.id?.startsWith('RAND-');
-    if (isMockCandidate) return; // Skip backend — local only
+    if (isMockCandidate) return;
 
     try {
       const token = localStorage.getItem('token');
       if (token) {
         await fetch(`http://localhost:5000/api/candidates/shortlist/${candidate.id}`, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` 
-          },
-          body: JSON.stringify({
-            score: candidate.score,
-            matchedSkills: candidate.matchedSkills,
-            missingSkills: candidate.missingSkills
-          })
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ score: candidate.score, matchedSkills: candidate.matchedSkills, missingSkills: candidate.missingSkills })
         });
       }
     } catch (err) {
       console.warn('Backend shortlist sync skipped:', err.message);
+      if (isAlreadyShortlisted) {
+        setShortlist(prev => [...prev, candidate]);
+      } else {
+        setShortlist(prev => prev.filter(c => c.id !== candidate.id));
+      }
     }
   };
 
-  const handleRemoveFromShortlist = (candidateId) => {
+  const handleRemoveFromShortlist = async (candidateId) => {
     setShortlist(prev => prev.filter(c => c.id !== candidateId));
+    const isMockCandidate = candidateId?.startsWith('CAND-') || candidateId?.startsWith('RAND-');
+    if (isMockCandidate) return;
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`http://localhost:5000/api/candidates/shortlist/${candidateId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({})
+        });
+      }
+    } catch (err) {
+      console.warn('Backend shortlist removal sync skipped:', err.message);
+    }
   };
 
   const handleRunAnalysis = async (autoSelect = false) => {
-    if (!jobReq.trim()) {
-      alert("Please enter job requirements.");
-      return;
-    }
-    if (candidates.length === 0) {
-      alert("Please add some mock candidates first by clicking 'Load 100 Mock Resumes'.");
-      return;
-    }
+    if (!jobReq.trim()) { alert('Please enter job requirements.'); return; }
+    if (candidates.length === 0) { alert("Please add candidates first by clicking 'Load Mock Resumes'."); return; }
 
     setIsAnalyzing(true);
     try {
-      // Pick 20 top candidates randomly or let LLM evaluate the pool
-      // Send ALL candidates to the LLM (up to 100 mock + any uploaded)
-      const candidateSubset = candidates;
-      
-      const response = await analyzeCandidates(jobReq, candidateSubset);
+      const response = await analyzeCandidates(jobReq, candidates);
       setAnalysisResults(response);
       setActiveTab(autoSelect === true ? 'comparison' : 'ranking');
     } catch (error) {
-      console.error(error);
       alert('Error analyzing candidates: ' + error.message);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  return (
-    <div className="dashboard-layout animate-fade-in">
-      <div className="sidebar glass-panel">
-        <h3 className="sidebar-title">Workflow</h3>
-        <nav className="sidebar-nav">
-          <button 
-            className={`nav-btn ${activeTab === 'requirements' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requirements')}
-          >
-            <Search size={18} /> Requirements
-          </button>
-          <button 
-            className={`nav-btn ${activeTab === 'ranking' ? 'active' : ''}`}
-            onClick={() => setActiveTab('ranking')}
-            disabled={!analysisResults}
-          >
-            <Users size={18} /> Rankings
-          </button>
-          <button 
-            className={`nav-btn ${activeTab === 'comparison' ? 'active' : ''}`}
-            onClick={() => setActiveTab('comparison')}
-            disabled={!analysisResults}
-          >
-            <Zap size={18} /> Direct Comparison
-          </button>
-          <button 
-            className={`nav-btn ${activeTab === 'shortlist' ? 'active' : ''}`}
-            onClick={() => setActiveTab('shortlist')}
-          >
-            <ClipboardList size={18} /> Shortlist ({shortlist.length})
-          </button>
-        </nav>
-        
-        <div className="auto-selector-card glass-panel mt-6 border-warning/30" style={{ padding: '1.25rem' }}>
-          <h4 className="text-warning" style={{ marginBottom: '0.5rem', fontSize: '1.05rem', whiteSpace: 'nowrap' }}>Auto-Selector Mode</h4>
-          <p className="text-sm" style={{ lineHeight: '1.7', marginBottom: '0.75rem' }}>Let AI instantly pick and compare the absolute best candidates.</p>
-          <button className="btn btn-primary w-full mt-2" onClick={() => handleRunAnalysis(true)} disabled={isAnalyzing}>
-            {isAnalyzing ? 'Analyzing...' : 'Auto-Select Best'}
-          </button>
-        </div>
-      </div>
+  const tabs = [
+    { id: 'requirements', label: 'Requirements', Icon: Search },
+    { id: 'ranking',      label: 'Rankings',     Icon: Users,        disabled: !analysisResults },
+    { id: 'comparison',   label: 'Comparison',   Icon: Zap,          disabled: !analysisResults },
+    { id: 'shortlist',    label: 'Shortlist',    Icon: ClipboardList, badge: shortlist.length || 0 },
+  ];
 
-      <div className="main-panel glass-panel">
+  return (
+    <div className="dashboard-root">
+      {/* ── TOP NAVBAR ── */}
+      <nav className="top-navbar">
+        <div className="navbar-inner">
+
+          {/* Brand */}
+          <div className="navbar-brand">
+            <span className="brand-icon">🌪️</span>
+            <span className="brand-name">LLM-Powered Job Matching and Candidate Analysis System</span>
+          </div>
+
+          {/* Center tabs */}
+          <div className="navbar-tabs">
+            {tabs.map(({ id, label, Icon, disabled, badge }) => (
+              <button
+                key={id}
+                className={`nav-tab ${activeTab === id ? 'active' : ''}`}
+                onClick={() => !disabled && setActiveTab(id)}
+                disabled={disabled}
+              >
+                <Icon size={15} />
+                {label}
+                {badge > 0 && <span className="tab-badge">{badge}</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Right actions */}
+          <div className="navbar-actions">
+            <button
+              className="auto-select-btn"
+              onClick={() => handleRunAnalysis(true)}
+              disabled={isAnalyzing || candidates.length === 0 || !jobReq.trim()}
+              title="Let AI instantly pick the best candidates"
+            >
+              <Zap size={13} />
+              {isAnalyzing ? 'Analyzing…' : 'Auto-Select'}
+            </button>
+            <div className="user-pill">
+              <User size={13} />
+              <span>{user?.name}</span>
+            </div>
+            <button className="logout-btn" onClick={onLogout} title="Sign out">
+              <LogOut size={15} />
+            </button>
+          </div>
+
+        </div>
+      </nav>
+
+      {/* ── PAGE CONTENT ── */}
+      <main key={activeTab} className="page-content animate-fade-in">
         {activeTab === 'requirements' && (
-          <JobRequirementsForm 
-            jobReq={jobReq} 
-            setJobReq={setJobReq} 
+          <JobRequirementsForm
+            jobReq={jobReq}
+            setJobReq={setJobReq}
             onAnalyze={handleRunAnalysis}
             isAnalyzing={isAnalyzing}
             candidatesCount={candidates.length}
@@ -150,19 +166,16 @@ const Dashboard = ({ candidates, setCandidates }) => {
             candidates={candidates}
           />
         )}
-        
         {activeTab === 'ranking' && (
           <CandidateRanking results={analysisResults} />
         )}
-
         {activeTab === 'comparison' && (
           <ComparativeAnalysis results={analysisResults} onShortlist={handleShortlist} shortlist={shortlist} />
         )}
-
         {activeTab === 'shortlist' && (
           <ShortlistView shortlist={shortlist} onRemove={handleRemoveFromShortlist} />
         )}
-      </div>
+      </main>
     </div>
   );
 };

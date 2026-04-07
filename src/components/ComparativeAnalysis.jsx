@@ -23,7 +23,7 @@ const ComparativeAnalysis = ({ results, onShortlist, shortlist = [] }) => {
       
       <div className="comparison-grid flex-grid text-left" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
         {topCandidates.map((candidate, idx) => (
-          <div key={candidate.id} className={`glass-panel flex-col ${idx === 0 ? 'border-accent' : ''}`} style={idx === 0 ? { borderColor: 'var(--accent-color)', padding: '1.75rem' } : { padding: '1.75rem' }}>
+          <div key={candidate.id} className={`glass-panel flex-col ${idx === 0 ? 'border-accent' : ''}`} style={idx === 0 ? { borderColor: 'var(--accent-color)', padding: '1.75rem', position: 'relative' } : { padding: '1.75rem', position: 'relative' }}>
             <div className="text-center mb-6 border-b pb-4" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
               {idx === 0 && <span className="bg-accent text-white text-xs px-2 py-1 rounded-full absolute -top-3 left-1/2 transform -translate-x-1/2 shadow-lg shadow-blue-500/50">Auto-Selected Best</span>}
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold mb-3">
