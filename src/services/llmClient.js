@@ -12,6 +12,24 @@ const getAuthHeaders = () => {
   };
 };
 
+export const judgeCandidates = async (jobReq, candidates) => {
+  try {
+    const res = await fetch(`${BACKEND_URL}/judge`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ jobReq, candidates })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to judge');
+
+    return data;
+  } catch (err) {
+    console.error('LLM Judge API Error:', err);
+    throw err;
+  }
+};
+
 export const analyzeCandidates = async (jobReq, candidates) => {
   try {
     const res = await fetch(`${BACKEND_URL}/analyze`, {

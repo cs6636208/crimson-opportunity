@@ -1,67 +1,91 @@
 import React from 'react';
 import { Zap, ThumbsUp, ThumbsDown, UserCheck } from 'lucide-react';
 
-const ComparativeAnalysis = ({ results, onShortlist, shortlist = [] }) => {
-  if (!results || !results.rankedCandidates) {
+const ComparativeAnalysis = ({ results, candidatesToCompare, onShortlist, shortlist = [] }) => {
+  // If candidatesToCompare is provided (e.g., from Shortlist view), use that.
+  // Otherwise, use the top 5 from the results.
+  const candidates = candidatesToCompare || (results ? results.rankedCandidates.slice(0, 5) : null);
+
+  if (!candidates || candidates.length === 0) {
     return (
-      <div className="flex-col items-center justify-center text-center h-full animate-fade-in" style={{ padding: '4rem 0' }}>
-        <Zap size={48} className="text-secondary mb-4 opacity-50" />
-        <h3 className="text-secondary">No comparison data</h3>
-        <p className="text-sm">Run the AI Matcher to evaluate candidates.</p>
+      <div className="empty-state">
+        <div className="empty-state-icon">
+          <Zap size={32} />
+        </div>
+        <h3>ไม่มีข้อมูลสำหรับการเปรียบเทียบ</h3>
+        <p>ให้ AI ทำการวิเคราะห์ก่อนถึงจะสามารถเปรียบเทียบผู้สมัครได้</p>
       </div>
     );
   }
 
-  const topCandidates = results.rankedCandidates.slice(0, 5); // Ensure top 5 are compared per requirement
+  // To check if a candidate is already shortlisted
+  const isCandidateShortlisted = (id) => shortlist.some(c => c.id === id);
 
   return (
     <div className="animate-fade-in">
-      <h2 className="mb-6 flex items-center gap-2">
-        <Zap size={24} className="text-accent" /> 
-        AI Comparative Analysis (Top 5)
-      </h2>
-      
-      <div className="comparison-grid flex-grid text-left" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-        {topCandidates.map((candidate, idx) => (
-          <div key={candidate.id} className={`glass-panel flex-col ${idx === 0 ? 'border-accent' : ''}`} style={idx === 0 ? { borderColor: 'var(--accent-color)', padding: '1.75rem', position: 'relative' } : { padding: '1.75rem', position: 'relative' }}>
-            <div className="text-center mb-6 border-b pb-4" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-              {idx === 0 && <span className="bg-accent text-white text-xs px-2 py-1 rounded-full absolute -top-3 left-1/2 transform -translate-x-1/2 shadow-lg shadow-blue-500/50">Auto-Selected Best</span>}
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold mb-3">
-                {candidate.score}
-              </div>
-              <h3 style={{ fontSize: '1.15rem', marginBottom: '0.35rem' }}>{candidate.name}</h3>
-              <p className="text-sm text-secondary" style={{ marginBottom: 0 }}>{candidate.currentRole}</p>
-            </div>
-            
-            <div className="flex-1">
-              <div className="mb-6">
-                <h4 className="flex items-center gap-2 text-success mb-3" style={{ fontSize: '0.95rem' }}><ThumbsUp size={16} /> Pros</h4>
-                <ul className="text-sm text-secondary list-disc pl-4 space-y-2" style={{ lineHeight: '1.8' }}>
-                  {candidate.pros.map((pro, i) => <li key={i}>{pro}</li>)}
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="flex items-center gap-2 text-danger mb-3" style={{ fontSize: '0.95rem' }}><ThumbsDown size={16} /> Cons / Gaps</h4>
-                <ul className="text-sm text-secondary list-disc pl-4 space-y-2" style={{ lineHeight: '1.8' }}>
-                  {candidate.cons.map((con, i) => <li key={i}>{con}</li>)}
-                </ul>
-              </div>
-            </div>
-            
-            {(() => {
-              const isShortlisted = shortlist.find(c => c.id === candidate.id);
-              return (
-                <button 
-                  className={`btn mt-6 w-full ${isShortlisted ? 'btn-danger' : idx === 0 ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => onShortlist && onShortlist(candidate)}
-                >
-                  <UserCheck size={16} /> {isShortlisted ? '✓ Remove from Shortlist' : 'Shortlist'}
-                </button>
-              );
-            })()}
+      {!candidatesToCompare && (
+        <div className="section-header">
+          <div className="section-header-icon cyan"><Zap size={20} /></div>
+          <div className="section-header-text">
+            <h2>เปรียบเทียบ Top 5 โดย AI</h2>
+            <p>วิเคราะห์จุดแข็งและจุดอ่อนของผู้สมัครที่ดีที่สุด 5 อันดับแรกแบบตัวต่อตัว</p>
           </div>
-        ))}
+        </div>
+      )}
+
+      <div className="comparison-grid stagger-children">
+        {candidates.map((candidate, idx) => {
+          const isShortlisted = isCandidateShortlisted(candidate.id);
+          // Highlight the best pick only if we are in the main comparison view (not shortlist compare view)
+          const isBestPick = !candidatesToCompare && idx === 0;
+
+          return (
+            <div key={candidate.id} className={`comparison-card animate-slide-up ${isBestPick ? 'best' : ''}`}>
+              {isBestPick && <span className="comparison-best-tag">แนะนำดีที่สุดโดย AI</span>}
+
+              <div style={{ textAlign: 'center', marginBottom: '1.25rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div className="comparison-score-circle" style={{ borderColor: isBestPick ? 'var(--accent)' : '' }}>
+                  {candidate.score}
+                </div>
+                <h3 style={{ fontSize: '1.05rem', marginBottom: '0.2rem' }}>{candidate.name}</h3>
+                <p className="text-sm text-secondary" style={{ margin: 0 }}>{candidate.currentRole}</p>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <div className="comparison-section pros">
+                  <h4 className="text-success"><ThumbsUp size={14} /> จุดแข็ง</h4>
+                  <ul>
+                    {candidate.pros && candidate.pros.length > 0 
+                       ? candidate.pros.map((pro, i) => <li key={i}>{pro}</li>)
+                       : <li className="text-muted">ไม่ระบุแน่ชัด</li>}
+                  </ul>
+                </div>
+
+                <div className="comparison-section cons">
+                  <h4 className="text-danger"><ThumbsDown size={14} /> จุดอ่อน / ควรระวัง</h4>
+                  <ul>
+                    {candidate.cons && candidate.cons.length > 0
+                       ? candidate.cons.map((con, i) => <li key={i}>{con}</li>)
+                       : <li className="text-muted">ไม่ระบุแน่ชัด</li>}
+                  </ul>
+                </div>
+              </div>
+
+              {onShortlist && (
+                <button
+                  className={`btn w-full mt-4 ${isShortlisted && !candidatesToCompare ? 'btn-danger' : isBestPick ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ justifyContent: 'center' }}
+                  onClick={() => onShortlist(candidate)}
+                >
+                  <UserCheck size={14} />
+                  {candidatesToCompare 
+                    ? 'ลบออกจากรายการ' // If in Shortlist comparison mode
+                    : (isShortlisted ? 'ลบออกจาก Shortlist' : 'เพิ่มลง Shortlist')}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

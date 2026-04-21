@@ -22,84 +22,73 @@ const Login = ({ onLogin, onSwitchToRegister }) => {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Login failed');
+        throw new Error(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
       }
 
-      // Store token and call parent
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       onLogin(data.user);
     } catch (err) {
-      setError(err.message);
+      setError(err.message === 'Invalid credentials' ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex-col items-center justify-center h-full w-full animate-fade-in" style={{ padding: '2rem', display: 'flex' }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem 2rem' }}>
-        <div className="text-center mb-8">
-          <div className="text-4xl mb-4">🌪️</div>
-          <h2 className="text-2xl font-bold mb-2">Welcome!</h2>
-          <p className="text-secondary text-sm">Sign in to your AI HR assistant</p>
+    <div className="auth-card">
+      <div className="auth-brand">
+        <div className="auth-brand-icon">⚡</div>
+        <h2 className="text-gradient">ยินดีต้อนรับกลับมา</h2>
+        <p className="text-secondary">เข้าสู่ระบบสรรหาบุคลากรด้วย AI</p>
+      </div>
+
+      {error && <div className="auth-error">{error}</div>}
+
+      <form onSubmit={handleSubmit} className="auth-form">
+        <div>
+          <label className="input-label mb-2 block">อีเมล</label>
+          <div className="auth-input-wrap">
+            <Mail size={16} className="auth-input-icon" />
+            <input
+              type="email"
+              required
+              className="input-field"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-500 text-sm p-3 rounded-lg mb-6">
-            {error}
+        <div>
+          <label className="input-label mb-2 block">รหัสผ่าน</label>
+          <div className="auth-input-wrap">
+            <Lock size={16} className="auth-input-icon" />
+            <input
+              type="password"
+              required
+              className="input-field"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
-        )}
+        </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label className="input-label mb-2 block">Email Address</label>
-            <div className="relative flex items-center">
-              <Mail size={18} className="absolute left-3 text-secondary" />
-              <input
-                type="email"
-                required
-                className="input-field w-full pl-12"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-          </div>
+        <button
+          type="submit"
+          className="btn btn-glow w-full mt-4"
+          style={{ justifyContent: 'center', padding: '0.7rem 1.25rem' }}
+          disabled={loading}
+        >
+          {loading ? 'กำลังตรวจสอบ...' : <><ArrowRight size={16} /> เข้าสู่ระบบ</>}
+        </button>
+      </form>
 
-          <div>
-            <label className="input-label mb-2 block">Password</label>
-            <div className="relative flex items-center">
-              <Lock size={18} className="absolute left-3 text-secondary" />
-              <input
-                type="password"
-                required
-                className="input-field w-full pl-12"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary mt-4 w-full justify-center"
-            disabled={loading}
-          >
-            {loading ? 'Authenticating...' : <><ArrowRight size={18} /> Sign In</>}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-secondary mt-6 border-t border-white/10 pt-6">
-          Don't have an account?{' '}
-          <button
-            style={{ background: 'transparent', border: 'none', color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '0.875rem', fontWeight: 500 }}
-            onClick={onSwitchToRegister}
-          >
-            Create one
-          </button>
-        </p>
+      <div className="auth-footer">
+        ยังไม่มีบัญชีใช่ไหม?{' '}
+        <button onClick={onSwitchToRegister}>สร้างบัญชีใหม่</button>
       </div>
     </div>
   );

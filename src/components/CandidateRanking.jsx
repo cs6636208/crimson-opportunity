@@ -1,19 +1,22 @@
-import React from 'react';
-import { Trophy, Star, TrendingUp, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Trophy, Star, BarChart3, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 
-const CandidateRanking = ({ results }) => {
+const CandidateRanking = ({ results, originalCandidates = [] }) => {
+  const [expandedId, setExpandedId] = useState(null);
+
   if (!results || !results.rankedCandidates) {
     return (
-      <div className="flex-col items-center justify-center text-center h-full animate-fade-in" style={{ padding: '4rem 0' }}>
-        <Trophy size={48} className="text-secondary mb-4 opacity-50" />
-        <h3 className="text-secondary">No rankings available</h3>
-        <p className="text-sm">Run the AI Matcher first to see candidate rankings.</p>
+      <div className="empty-state">
+        <div className="empty-state-icon">
+          <BarChart3 size={32} />
+        </div>
+        <h3>ยังไม่มีข้อมูลการจัดอันดับ</h3>
+        <p>กรุณาสั่งให้ AI ช่วยคัดกรองผู้สมัครในหน้า "รายละเอียดงาน" ก่อนครับ</p>
       </div>
     );
   }
 
   const { rankedCandidates } = results;
-  const top5 = rankedCandidates.slice(0, 5);
 
   const getScoreClass = (score) => {
     if (score >= 80) return 'score-high';
@@ -21,76 +24,129 @@ const CandidateRanking = ({ results }) => {
     return 'score-low';
   };
 
+  const getRankClass = (index) => {
+    if (index === 0) return 'gold';
+    if (index === 1) return 'silver';
+    if (index === 2) return 'bronze';
+    return '';
+  };
+
+  const medals = ['🥇', '🥈', '🥉'];
+
   return (
     <div className="animate-fade-in">
-      <h2 className="mb-6 flex items-center gap-2">
-        <Trophy size={24} className="text-warning" /> 
-        Top Candidates Ranked (Top 5)
-      </h2>
-      
-      <div className="candidate-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {top5.map((candidate, index) => {
-          const medals = ['🥇', '🥈', '🥉'];
-          const medalColors = [
-            'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.05))',
-            'linear-gradient(135deg, rgba(192,192,192,0.15), rgba(192,192,192,0.05))',
-            'linear-gradient(135deg, rgba(205,127,50,0.15), rgba(205,127,50,0.05))'
-          ];
-          const isTop3 = index < 3;
+      <div className="section-header">
+        <div className="section-header-icon yellow"><Trophy size={20} /></div>
+        <div className="section-header-text">
+          <h2>การจัดอันดับผู้สมัครทั้งหมด</h2>
+          <p>จัดอันดับโดย AI ตามเปอร์เซ็นต์ความตรงกันกับสายงาน พร้อมดูเหตุผลการให้คะแนนและคุณสมบัติจริงของผู้สมัคร</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="stagger-children">
+        {rankedCandidates.map((candidate, index) => {
+          const isExpanded = expandedId === candidate.id;
+          const originalProfile = originalCandidates.find(c => c.id === candidate.id);
 
           return (
-          <div key={candidate.id} className="candidate-card glass-panel flex items-center justify-between" 
-               style={{ background: isTop3 ? medalColors[index] : undefined, transition: 'transform 0.2s ease, box-shadow 0.2s ease' }}>
-            <div className="flex items-center gap-6" style={{ flex: 1 }}>
-              
-              {/* Rank Number Badge */}
-              <div style={{ 
-                width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: isTop3 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
-                border: isTop3 ? '2px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.1)',
-                fontSize: isTop3 ? '1.5rem' : '1.1rem', fontWeight: 700, flexShrink: 0,
-                color: isTop3 ? '#fff' : 'var(--text-secondary)'
-              }}>
-                {isTop3 ? medals[index] : `#${index + 1}`}
-              </div>
+            <div key={candidate.id} className="candidate-card animate-slide-up" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                {/* Rank Badge */}
+                <div className={`candidate-rank ${getRankClass(index)}`}>
+                  {index < 3 ? medals[index] : `#${index + 1}`}
+                </div>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h3 className="text-lg font-semibold flex items-center gap-2" style={{ marginBottom: '0.25rem' }}>
-                  {candidate.name} 
-                  {index === 0 && <Star size={16} fill="var(--warning-color)" className="text-warning" />}
-                </h3>
-                <p className="text-sm text-secondary" style={{ marginBottom: '0.5rem' }}>
-                  {candidate.currentRole} • {candidate.yearsOfExperience}y exp
-                  {candidate.education && <span style={{ marginLeft: '0.5rem', background: 'rgba(139,92,246,0.15)', color: '#a78bfa', fontSize: '0.7rem', padding: '0.15rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(139,92,246,0.25)' }}>🎓 {candidate.education}</span>}
-                </p>
-                <div className="skills" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                  {candidate.matchedSkills.slice(0, 4).map(skill => (
-                    <span key={skill} style={{ 
-                      background: 'rgba(34,197,94,0.12)', color: '#4ade80', fontSize: '0.75rem',
-                      padding: '0.2rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(34,197,94,0.25)'
-                    }}>
-                      ✓ {skill}
-                    </span>
-                  ))}
-                  {candidate.missingSkills.length > 0 && (
-                    <span style={{
-                      background: 'rgba(239,68,68,0.12)', color: '#f87171', fontSize: '0.75rem',
-                      padding: '0.2rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.25)'
-                    }}>
-                      ✗ {candidate.missingSkills[0]}
-                    </span>
-                  )}
+                {/* Info */}
+                <div className="candidate-info">
+                  <div className="candidate-name" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {candidate.name}
+                      {index === 0 && <Star size={14} fill="var(--warning)" style={{ color: 'var(--warning)' }} />}
+                    </div>
+                  </div>
+                  <div className="candidate-meta">
+                    {candidate.currentRole} • ประสบการณ์ {candidate.yearsOfExperience} ปี
+                    {candidate.education && (
+                      <span className="edu-tag">🎓 {candidate.education}</span>
+                    )}
+                  </div>
+                  <div className="skill-tags" style={{ marginBottom: '0.5rem' }}>
+                    {candidate.matchedSkills.slice(0, 4).map(skill => (
+                      <span key={skill} className="skill-tag matched">✓ {skill}</span>
+                    ))}
+                    {candidate.missingSkills.length > 0 && (
+                      <span className="skill-tag missing">✗ ขาด: {candidate.missingSkills[0]}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Score & Expand */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
+                  <div className="candidate-score text-right">
+                    <div className="candidate-score-label">ความเข้ากันได้</div>
+                    <div className={`score-badge ${getScoreClass(candidate.score)}`}>
+                      {candidate.score}
+                    </div>
+                  </div>
+                  
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ padding: '0.5rem' }}
+                    onClick={() => setExpandedId(isExpanded ? null : candidate.id)}
+                  >
+                    {isExpanded ? <ChevronUp size={16} /> : <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>ดูเหตุผลและประวัติ <ChevronDown size={14}/></span>}
+                  </button>
                 </div>
               </div>
+
+              {/* Expanded Reason & Profile Section */}
+              {isExpanded && (
+                <div style={{ 
+                  marginTop: '1rem', 
+                  paddingTop: '1rem', 
+                  borderTop: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.5rem',
+                  animation: 'fadeIn 0.2s ease-out'
+                }}>
+                  {/* Original Profile from DB */}
+                  {originalProfile && originalProfile.summary && (
+                    <div className="comparison-section" style={{ marginBottom: 0, padding: '1rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)' }}>
+                      <h4 className="text-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><BookOpen size={14} /> ข้อมูลประวัติโดยย่อ (Profile Summary)</h4>
+                      <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.5' }}>{originalProfile.summary}</p>
+                      
+                      {originalProfile.skills && (
+                        <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>ทักษะดั้งเดิมทั้งหมด:</span>
+                          {originalProfile.skills.map(s => <span key={s} style={{ fontSize: '0.75rem', background: 'var(--bg-card)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>{s}</span>)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    <div className="comparison-section pros" style={{ marginBottom: 0 }}>
+                      <h4 className="text-success"><ThumbsUp size={14} /> ทำไมถึงได้คะแนนเท่านี้ (จุดแข็ง)</h4>
+                      <ul>
+                        {candidate.pros && candidate.pros.length > 0 
+                          ? candidate.pros.map((pro, i) => <li key={i}>{pro}</li>)
+                          : <li className="text-muted">ไม่มีข้อมูลจุดแข็งที่ระบุได้ชัดเจน</li>}
+                      </ul>
+                    </div>
+
+                    <div className="comparison-section cons" style={{ marginBottom: 0 }}>
+                      <h4 className="text-danger"><ThumbsDown size={14} /> ข้อควรระวัง (จุดอ่อน / สิ่งที่ขาด)</h4>
+                      <ul>
+                        {candidate.cons && candidate.cons.length > 0
+                          ? candidate.cons.map((con, i) => <li key={i}>{con}</li>)
+                          : <li className="text-muted">ไม่พบจุดอ่อนที่น่ากังวล</li>}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            
-            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '1rem' }}>
-              <p className="text-xs text-secondary" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>Match Score</p>
-              <div className={`score-badge ${getScoreClass(candidate.score)}`} style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                {candidate.score}
-              </div>
-            </div>
-          </div>
           );
         })}
       </div>

@@ -176,6 +176,67 @@ Respond STRICTLY with valid JSON in the following format, with no markdown code 
   }
 });
 
+router.post('/judge', requireAuth, async (req, res) => {
+  try {
+    const { jobReq, candidates } = req.body;
+    if (!jobReq || !candidates || candidates.length === 0) {
+      return res.status(400).json({ error: 'Job requirement and candidates are required.' });
+    }
+
+    const judgePrompt = `
+You are the Executive HR Director. You have shortlisted a final set of elite candidates for the following job requirement:
+"${jobReq}"
+
+Here are the shortlisted candidates:
+${JSON.stringify(candidates, null, 2)}
+
+Your task is to analyze these candidates side-by-side, weigh their pros and cons deeply, and confidently DECLARE ONE ABSOLUTE WINNER who fits the requirement best.
+Also provide a summary of the runner-ups and why they fell short of the winner.
+
+Respond strictly in Thai Markdown format.
+Include these headers:
+### 🏆 ผู้ชนะเลิศแบบฟันธง: [ชื่อคนชนะ]
+**เหตุผลที่ชนะ:** ...
+
+### 🥈 ผู้ท้าชิง (Runner-ups):
+**[ชื่อ]:** ... ทำไมถึงแพ้คนชนะ ...
+
+### 📝 บทสรุปจากผู้อำนวยการ HR:
+...
+`;
+
+    const requestBody = {
+      model: 'typhoon-v2.5-30b-a3b-instruct',
+      messages: [{ role: 'user', content: judgePrompt }],
+      max_tokens: 3000,
+      temperature: 0.4,
+    };
+
+    console.log('[JUDGE] Sending to Typhoon API...');
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${API_KEY}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error('[JUDGE] Typhoon API Status:', response.status);
+      return res.status(response.status).json({ error: 'Failed to judge via OpenTyphoon AI' });
+    }
+
+    const data = await response.json();
+    return res.json({ verdict: data.choices[0].message.content });
+
+  } catch (error) {
+    console.error('AI Judge Error:', error);
+    res.status(500).json({ error: 'Error judging candidates' });
+  }
+});
+
 router.post('/extract', requireAuth, async (req, res) => {
   try {
     const { text } = req.body;

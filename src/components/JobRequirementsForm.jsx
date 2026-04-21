@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Briefcase, Code, CheckCircle, Zap, Shuffle } from 'lucide-react';
+import { Upload, Briefcase, Code, Zap, Shuffle, FileText, Users, Database } from 'lucide-react';
 
 const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candidatesCount, setCandidates, candidates }) => {
 
@@ -9,10 +9,9 @@ const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candid
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check file size limit (5MB)
     const MAX_FILE_SIZE = 5 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
-      alert("File size exceeds the 5MB limit. Please upload a smaller file.");
+      alert("ขนาดไฟล์เกิน 5MB กรุณาอัปโหลดไฟล์ที่เล็กกว่านี้");
       e.target.value = '';
       return;
     }
@@ -22,7 +21,6 @@ const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candid
       const { extractResumeData } = await import('../services/llmClient.js');
       const newCandidate = await extractResumeData(file);
 
-      // Save to backend immediately so returning users see it
       const token = localStorage.getItem('token');
       if (token) {
         await fetch('http://localhost:5000/api/candidates/bulk', {
@@ -36,15 +34,14 @@ const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candid
       }
 
       setCandidates(prev => [newCandidate, ...prev]);
-      alert(`Successfully processed and added: ${newCandidate.name}`);
+      alert(`ดึงข้อมูลและเพิ่มผู้สมัครสำเร็จ: ${newCandidate.name}`);
     } catch (err) {
       console.error(err);
-      alert("Error parsing document. " + err.message);
+      alert("เกิดข้อผิดพลาดในการดึงข้อมูลจากเอกสาร: " + err.message);
     } finally {
       setIsUploading(false);
-      e.target.value = ''; // Reset input
+      e.target.value = ''; 
     }
-
   };
 
   const handleLoadMockData = async () => {
@@ -54,7 +51,7 @@ const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candid
       alert(`โหลดข้อมูล ${mockResumes.length} Mock Resume เสร็จเรียบร้อยแล้ว!`);
     } catch (err) {
       console.error(err);
-      alert("Failed to load mock data. Ensure mock data script has been run.");
+      alert("ไม่สามารถโหลด Mock Data ได้");
     }
   };
 
@@ -66,83 +63,128 @@ const JobRequirementsForm = ({ jobReq, setJobReq, onAnalyze, isAnalyzing, candid
       alert(`สุ่มสร้างใหม่ ${freshResumes.length} คนที่ไม่ซ้ำกับชุดเดิม! (รวมทั้งหมด ${candidates.length + freshResumes.length} คนในระบบ)`);
     } catch (err) {
       console.error(err);
-      alert("Failed to generate random mock data.");
+      alert("ไม่สามารถสุ่มสร้างข้อมูลได้");
     }
   };
 
   return (
     <div className="animate-fade-in">
-      <h2 className="mb-4 flex items-center gap-2"><Briefcase size={24} className="text-accent" /> Job Requirements</h2>
+      {/* Stats Row */}
+      <div className="stats-row">
+        <div className="stat-card">
+          <div className="stat-icon blue"><Users size={20} /></div>
+          <div>
+            <div className="stat-value">{candidatesCount}</div>
+            <div className="stat-label">ผู้สมัครทั้งหมด</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon cyan"><FileText size={20} /></div>
+          <div>
+            <div className="stat-value">{jobReq.trim() ? '1' : '0'}</div>
+            <div className="stat-label">รายละเอียดงาน</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon green"><Zap size={20} /></div>
+          <div>
+            <div className="stat-value" style={{ color: isAnalyzing ? 'var(--warning)' : (candidatesCount > 0 && jobReq.trim() ? 'var(--success)' : 'var(--text-muted)') }}>
+              {isAnalyzing ? '...' : (candidatesCount > 0 && jobReq.trim() ? 'พร้อมประมวลผล' : 'รอข้อมูล')}
+            </div>
+            <div className="stat-label">สถานะ AI</div>
+          </div>
+        </div>
+      </div>
 
-      <div className="glass-panel mb-6">
-        <label className="input-label mb-2 block">Describe the ideal candidate (Skills, Experience, Traits)</label>
+      {/* Job Requirements Input */}
+      <div className="section-header">
+        <div className="section-header-icon blue"><Briefcase size={20} /></div>
+        <div className="section-header-text">
+          <h2>ความต้องการของตำแหน่งงาน</h2>
+          <p>อธิบายคุณสมบัติของผู้สมัครที่ต้องการเพื่อให้ AI ช่วยคัดกรอง</p>
+        </div>
+      </div>
+
+      <div className="glass-panel-static mb-8">
+        <label className="input-label mb-2 block">ทักษะ, ประสบการณ์ และลักษณะนิสัยที่ต้องการ</label>
         <textarea
           className="input-field w-full"
           rows="5"
-          placeholder="e.g., We are looking for a Senior React Developer with at least 5 years of experience. Must know Node.js, Next.js, and be comfortable with mentoring juniors..."
+          placeholder="เช่น ต้องการ Senior React Developer ประสบการณ์ 5 ปีขึ้นไป ต้องรู้ Node.js, Next.js และสามารถสอนน้องๆ ในทีมได้..."
           value={jobReq}
           onChange={(e) => setJobReq(e.target.value)}
         />
-        <div className="flex justify-end mt-4">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
           <button
-            className="btn btn-primary"
+            className="btn btn-glow"
             onClick={onAnalyze}
             disabled={isAnalyzing || candidatesCount === 0 || !jobReq}
           >
             {isAnalyzing ? (
-              <>Analyzing Candidates...</>
+              <>กำลังประมวลผล...</>
             ) : (
-              <><Zap size={18} /> Run AI Matcher</>
+              <><Zap size={16} /> ให้ AI คัดกรองผู้สมัคร</>
             )}
           </button>
         </div>
       </div>
 
-      <div className="mt-10">
-        <h3 className="mb-4 text-xl">Candidate Database</h3>
-        <div className="glass-panel items-center justify-between mb-6">
-          <div className="mb-4 pb-4 border-b border-white/10">
-            <p className="font-semibold text-lg">{candidatesCount} Resumes in Pool</p>
-            <p className="text-sm text-secondary">Extract data from documents or load mock data to evaluate.</p>
+      {/* Candidate Database */}
+      <div className="section-header">
+        <div className="section-header-icon purple"><Database size={20} /></div>
+        <div className="section-header-text">
+          <h2>ฐานข้อมูลผู้สมัคร</h2>
+          <p>โหลดไฟล์หรือจำลองข้อมูลผู้สมัครเพื่อทำการทดสอบ</p>
+        </div>
+      </div>
+
+      <div className="tech-grid stagger-children">
+        {/* Mock Data Card */}
+        <div className="tech-card animate-slide-up">
+          <div className="tech-card-icon" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
+            <Code size={22} />
           </div>
+          <h4>โหมดข้อมูลจำลองพื้นฐาน</h4>
+          <p className="text-secondary">ดึงข้อมูลตัวอย่าง 100 คนที่มีอยู่ในระบบเพื่อทดสอบทันที</p>
+          <button className="btn btn-secondary w-full" style={{ justifyContent: 'center' }} onClick={handleLoadMockData}>
+            <Database size={14} /> โหลดข้อมูลจำลอง 100 คน
+          </button>
+        </div>
 
-          <div className="flex-grid mt-4">
-            <div className="action-card p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-              <h4 className="flex items-center gap-2 mb-2"><Code size={18} className="text-accent" /> Mock Data Mode</h4>
-              <p className="text-xs text-secondary mb-4 min-h-[40px]">Instantly populate the system with 100 auto-generated resumes for testing.</p>
-              <button className="btn btn-secondary w-full justify-center" onClick={handleLoadMockData}>
-                Load 100 Mock Resumes
-              </button>
-            </div>
-
-            <div className="action-card p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-              <h4 className="flex items-center gap-2 mb-2"><Shuffle size={18} className="text-warning" /> Random Generate</h4>
-              <p className="text-xs text-secondary mb-4 min-h-[40px]">Generate 100 fresh random resumes (no duplicates with existing pool).</p>
-              <button className="btn btn-secondary w-full justify-center" onClick={handleGenerateRandom}>
-                + Generate 100 Random
-              </button>
-            </div>
-
-            <div className="action-card p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors relative overflow-hidden">
-              <h4 className="flex items-center gap-2 mb-2"><Upload size={18} className="text-success" /> Upload Real Resume</h4>
-              <p className="text-xs text-secondary mb-4 min-h-[40px]">
-                Securely parse a local PDF or TXT resume.
-                <span className="block mt-1 text-warning/80">Max limit: 1 file (Up to 5 MB)</span>
-              </p>
-              <label className={`btn btn-primary block text-center w-full min-h-[44px] leading-[44px] p-0 transition-all ${isUploading ? 'opacity-70 cursor-wait' : 'cursor-pointer hover:shadow-lg hover:shadow-success/30'}`}>
-                <div className="w-full h-full flex items-center justify-center gap-2">
-                  {isUploading ? 'Extracting via AI...' : <><Upload size={16} /> Choose File (PDF/TXT)</>}
-                </div>
-                <input
-                  type="file"
-                  accept=".pdf,.txt"
-                  style={{ display: 'none' }}
-                  onChange={handleFileUpload}
-                  disabled={isUploading}
-                />
-              </label>
-            </div>
+        {/* Random Generate Card */}
+        <div className="tech-card animate-slide-up">
+          <div className="tech-card-icon" style={{ background: 'var(--warning-muted)', color: 'var(--warning)' }}>
+            <Shuffle size={22} />
           </div>
+          <h4>สุ่มสร้างข้อมูลใหม่</h4>
+          <p className="text-secondary">ใช้ AI หรือ Script สุ่มสร้างข้อมูลผู้สมัครใหม่ 100 คนไม่ซ้ำเดิม</p>
+          <button className="btn btn-secondary w-full" style={{ justifyContent: 'center' }} onClick={handleGenerateRandom}>
+            <Shuffle size={14} /> สร้างสุ่ม 100 คน
+          </button>
+        </div>
+
+        {/* Upload Card */}
+        <div className="tech-card animate-slide-up">
+          <div className="tech-card-icon" style={{ background: 'var(--success-muted)', color: 'var(--success)' }}>
+            <Upload size={22} />
+          </div>
+          <h4>อัปโหลดเรซูเม่ของจริง</h4>
+          <p className="text-secondary">
+            ใช้ AI ดึงข้อมูลจากไฟล์ PDF หรือ TXT
+            <span style={{ display: 'block', marginTop: '0.25rem', color: 'var(--warning)', fontSize: '0.75rem' }}>จำกัด: 1 ไฟล์ไม่เกิน 5 MB</span>
+          </p>
+          <label className={`btn btn-primary w-full ${isUploading ? '' : ''}`} style={{ justifyContent: 'center', cursor: isUploading ? 'wait' : 'pointer', opacity: isUploading ? 0.7 : 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>
+              {isUploading ? 'ระบบ AI กำลังดึงข้อมูล...' : <><Upload size={14} /> เลือกไฟล์ (PDF/TXT)</>}
+            </div>
+            <input
+              type="file"
+              accept=".pdf,.txt"
+              style={{ display: 'none' }}
+              onChange={handleFileUpload}
+              disabled={isUploading}
+            />
+          </label>
         </div>
       </div>
     </div>

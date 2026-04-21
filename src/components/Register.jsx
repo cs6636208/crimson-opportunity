@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Lock, Mail, ShieldAlert } from 'lucide-react';
+import { User, Lock, Mail, ShieldCheck } from 'lucide-react';
 
 const Register = ({ onRegisterSuccess, onSwitchToLogin }) => {
   const [name, setName] = useState('');
@@ -23,97 +23,89 @@ const Register = ({ onRegisterSuccess, onSwitchToLogin }) => {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Registration failed');
+        throw new Error(data.error || 'ลงทะเบียนไม่สำเร็จ');
       }
 
-      onRegisterSuccess(email); // Automatically switch to login screen with email pre-filled if desired
+      onRegisterSuccess(email); 
     } catch (err) {
-      setError(err.message);
+      setError(err.message === 'User already exists' ? 'มีอีเมลนี้ในระบบแล้ว' : err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex-col items-center justify-center h-full w-full animate-fade-in" style={{ padding: '2rem', display: 'flex' }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem 2rem' }}>
-        <div className="text-center mb-8">
-          <ShieldAlert size={48} className="text-accent mx-auto mb-4 opacity-80" />
-          <h2 className="text-2xl font-bold mb-2">Create Account</h2>
-          <p className="text-secondary text-sm">Join the AI HR Platform</p>
+    <div className="auth-card">
+      <div className="auth-brand">
+        <div className="auth-brand-icon">
+          <ShieldCheck size={24} style={{ color: 'var(--cyan)' }} />
+        </div>
+        <h2 className="text-gradient">สร้างบัญชีใหม่</h2>
+        <p className="text-secondary">เข้าร่วมแพลตฟอร์มสรรหาด้วย AI</p>
+      </div>
+
+      {error && <div className="auth-error">{error}</div>}
+
+      <form onSubmit={handleSubmit} className="auth-form">
+        <div>
+          <label className="input-label mb-2 block">ชื่อ - นามสกุล</label>
+          <div className="auth-input-wrap">
+            <User size={16} className="auth-input-icon" />
+            <input
+              type="text"
+              required
+              className="input-field"
+              placeholder="สมชาย ใจดี"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-500 text-sm p-3 rounded-lg mb-6">
-            {error}
+        <div>
+          <label className="input-label mb-2 block">อีเมล</label>
+          <div className="auth-input-wrap">
+            <Mail size={16} className="auth-input-icon" />
+            <input
+              type="email"
+              required
+              className="input-field"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
-        )}
+        </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label className="input-label mb-2 block">Full Name</label>
-            <div className="relative flex items-center">
-              <User size={18} className="absolute left-3 text-secondary" />
-              <input
-                type="text"
-                required
-                className="input-field w-full pl-12"
-                placeholder="Jane Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
+        <div>
+          <label className="input-label mb-2 block">รหัสผ่าน</label>
+          <div className="auth-input-wrap">
+            <Lock size={16} className="auth-input-icon" />
+            <input
+              type="password"
+              required
+              className="input-field"
+              placeholder="••••••••"
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
+        </div>
 
-          <div>
-            <label className="input-label mb-2 block">Email Address</label>
-            <div className="relative flex items-center">
-              <Mail size={18} className="absolute left-3 text-secondary" />
-              <input
-                type="email"
-                required
-                className="input-field w-full pl-12"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-          </div>
+        <button
+          type="submit"
+          className="btn btn-glow w-full mt-4"
+          style={{ justifyContent: 'center', padding: '0.7rem 1.25rem' }}
+          disabled={loading}
+        >
+          {loading ? 'กำลังสร้างบัญชี...' : 'สมัครสมาชิก'}
+        </button>
+      </form>
 
-          <div>
-            <label className="input-label mb-2 block">Password</label>
-            <div className="relative flex items-center">
-              <Lock size={18} className="absolute left-3 text-secondary" />
-              <input
-                type="password"
-                required
-                className="input-field w-full pl-12"
-                placeholder="••••••••"
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary mt-4 w-full justify-center"
-            disabled={loading}
-          >
-            {loading ? 'Creating account...' : 'Create Account'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-secondary mt-6 border-t border-white/10 pt-6">
-          Already have an account?{' '}
-          <button
-            style={{ background: 'transparent', border: 'none', color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '0.875rem', fontWeight: 500 }}
-            onClick={onSwitchToLogin}
-          >
-            Sign In
-          </button>
-        </p>
+      <div className="auth-footer">
+        มีบัญชีอยู่แล้ว?{' '}
+        <button onClick={onSwitchToLogin}>เข้าสู่ระบบ</button>
       </div>
     </div>
   );
